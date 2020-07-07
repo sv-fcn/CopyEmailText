@@ -42,7 +42,7 @@ namespace CopyEmailText
 
         private static ImapClient ImapConnect( string host, int port, string username, string password )
         {
-            ComponentInfo.SetLicense( "MAAM-UCBJ-1F3O-WEDX" );
+            ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
 
             var imapClient = new ImapClient( host, port, ConnectionSecurity.Auto );
             Console.Write( $"Connecting to {host}:{port}..." );
