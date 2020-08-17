@@ -34,8 +34,11 @@ namespace CopyEmailText
                 c.SetText( email.text );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
 
+                DeleteMessages( options, imapClient, emailList );
+
                 Console.WriteLine( );
-                WriteColor( $"{GetTextAge( email.date )} ago\t\t{email.text}", ConsoleColor.White );
+                var textAge = GetTextAge( email.date );
+                WriteColor( $"{textAge.text} ago\t\t{email.text}", textAge.color );
                 Thread.Sleep( options.ShowConsoleSeconds * 1000 );
             }
         }
@@ -56,9 +59,9 @@ namespace CopyEmailText
             return imapClient;
         }
 
-        private static List<(DateTime date, string subject)> GetEmailIdList( ImapClient imapClient, string from, string subject, int searchNumber )
+        private static List<(DateTime date, string subject, int messageId)> GetEmailIdList( ImapClient imapClient, string from, string subject, int searchNumber )
         {
-            var emails = new List<(DateTime date, string subject)>( );
+            var emails = new List<(DateTime date, string subject, int messageId)>( );
             imapClient.SelectInbox( );
 
             Console.Write( $"Search for \"{subject}\"..." );
@@ -76,14 +79,14 @@ namespace CopyEmailText
                 var headers = imapClient.GetHeaders( msgId );
 
                 if( DateTime.TryParse( headers[HeaderId.Date].Body, out var date ) )
-                    emails.Add( (date, headers[Headers.Subject].Body) );
+                    emails.Add( (date, headers[Headers.Subject].Body, msgId) );
             }
             WriteColor( " Success.", ConsoleColor.DarkGreen );
 
             return emails;
         }
 
-        private static (string text, DateTime date) GetTextFromEmail( List<(DateTime date, string subject)> emails, string subject )
+        private static (string text, DateTime date) GetTextFromEmail( List<(DateTime date, string subject, int messageId)> emails, string subject )
         {
             Console.Write( $"Finding newest email..." );
 
@@ -101,6 +104,16 @@ namespace CopyEmailText
             return (text, filteredEmail.date);
         }
 
+        private static void DeleteMessages( SearchOptions options, ImapClient imapClient, List<(DateTime date, string subject, int messageId)> emails )
+        {
+            if( options.DeleteMessages )
+            {
+                Console.Write( $"Deleting {emails.Count} emails..." );
+                emails.ForEach( e => imapClient.DeleteMessage( e.messageId, false ) );
+                WriteColor( " Success", ConsoleColor.DarkGreen );
+            }
+        }
+
         private static void WriteColor( string text, ConsoleColor color )
         {
             Console.ForegroundColor = color;
@@ -108,15 +121,24 @@ namespace CopyEmailText
             Console.ResetColor( );
         }
 
-        private static string GetTextAge( DateTime date )
+        private static (string text, ConsoleColor color) GetTextAge( DateTime date )
         {
             var now = DateTime.Now;
             var age = now - date;
 
-            if( age > new TimeSpan( 0, 2, 0 ) )
-                return $"{age.Minutes}m {age.Seconds}s";
+            var color = age.TotalSeconds > 30 ? ConsoleColor.Yellow : ConsoleColor.White;
 
-            return $"{age.TotalSeconds}s";
+            if( age > new TimeSpan( 1, 10, 0 ) )
+            {
+                return ($"{( int ) age.TotalMinutes}m", ConsoleColor.DarkRed);
+            }
+            
+            if( age > new TimeSpan( 0, 2, 0 ) )
+            {
+                return ($"{( int ) age.TotalMinutes}m {( int ) age.Seconds}s", color);
+            }
+
+            return ($"{( int ) age.TotalSeconds}s", color);
         }
 
         private static void ConfigureServices( IServiceCollection serviceCollection )

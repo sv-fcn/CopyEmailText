@@ -9,6 +9,7 @@
         public string SearchFrom { get; set; }
         public string SearchSubject { get; set; }
         public int SearchNumberOfMessages { get; set; }
+        public bool DeleteMessages { get; set; }
         public int ShowConsoleSeconds { get; set; }
 
     }
