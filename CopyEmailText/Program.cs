@@ -33,12 +33,14 @@ namespace CopyEmailText
                 var c = new Clipboard( );
                 c.SetText( email.text );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
-
-                DeleteMessages( options, imapClient, emailList );
-
+                
                 Console.WriteLine( );
                 var textAge = GetTextAge( email.date );
                 WriteColor( $"{textAge.text} ago\t\t{email.text}", textAge.color );
+                
+                Console.WriteLine( );
+                DeleteMessages( options, imapClient, emailList );
+
                 Thread.Sleep( options.ShowConsoleSeconds * 1000 );
             }
         }
@@ -108,8 +110,13 @@ namespace CopyEmailText
         {
             if( options.DeleteMessages )
             {
-                Console.Write( $"Deleting {emails.Count} emails..." );
-                emails.ForEach( e => imapClient.DeleteMessage( e.messageId, false ) );
+                Console.WriteLine( $"Deleting {emails.Count} emails..." );
+                emails.ForEach( e =>
+                {
+                    Console.Write($"\tDeleting message from {e.date:G}...");
+                    imapClient.DeleteMessage( e.messageId, false );
+                    WriteColor(" Success", ConsoleColor.DarkGreen);
+                } );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
             }
         }
