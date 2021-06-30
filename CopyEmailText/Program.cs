@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,67 +18,104 @@ namespace CopyEmailText
     class Program
     {
         private static IConfigurationRoot _configuration;
+
         static void Main( string[] args )
         {
-            Console.Write( $"Reading appsettings..." );
-            var serviceCollection = new ServiceCollection( );
-            ConfigureServices( serviceCollection );
-            var options = _configuration.GetSection( "Options" ).Get<SearchOptions>( );
-            WriteColor( " Success", ConsoleColor.DarkGreen );
-
-            using( var imapClient = ImapConnect( options.Host, options.Port, options.Username, options.Password ) )
+            try
             {
-                var emailList = GetEmailIdList( imapClient, options.SearchFrom, options.SearchSubject, options.SearchNumberOfMessages );
-                var email = GetTextFromEmail( emailList, options.SearchSubject );
-
-                Console.Write( $"Copying password to clipboard..." );
-                var c = new Clipboard( );
-                c.SetText( email.text );
+                Console.WindowHeight = 25;
+                Console.WindowWidth = 75;
+                Console.BufferWidth = Console.WindowWidth;
+                Console.Write( $"Reading appsettings..." );
+                var serviceCollection = new ServiceCollection( );
+                ConfigureServices( serviceCollection );
+                var options = _configuration.GetSection( "Options" ).Get<SearchOptions>( );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
-                
-                Console.WriteLine( );
-                var textAge = GetTextAge( email.date );
-                WriteColor( $"{textAge.text} ago\t\t{email.text}", textAge.color );
-                
-                Console.WriteLine( );
-                DeleteMessages( options, imapClient, emailList );
 
-                Thread.Sleep( options.ShowConsoleSeconds * 1000 );
+                if( options.TestMode.Enabled )
+                {
+                    WriteColor( "[ Test Mode Enabled ]", ConsoleColor.Yellow );
+                }
+
+                using( var imapClient = ImapConnect( options ) )
+                {
+                    var emailList = GetEmailIdList( options, imapClient );
+                    var email = GetTextFromEmail( emailList, options.SearchSubject );
+
+                    Console.Write( $"Copying password to clipboard..." );
+                    var c = new Clipboard( );
+                    c.SetText( email.text );
+                    WriteColor( " Success", ConsoleColor.DarkGreen );
+
+                    Console.WriteLine( );
+                    var textAge = GetTextAge( email.date, options );
+                    WriteColor( $"{textAge.text} ago\t\t{email.text}", textAge.color );
+
+                    Console.WriteLine( );
+                    DeleteMessages( options, imapClient, emailList );
+
+                    Thread.Sleep( options.ShowConsoleSeconds * 1000 );
+                }
+            }
+            catch( Exception e )
+            {
+                Console.WriteLine();
+                WriteColor( e.Message, ConsoleColor.DarkRed );
             }
         }
 
-        private static ImapClient ImapConnect( string host, int port, string username, string password )
+        private static ImapClient ImapConnect( SearchOptions options )
         {
-            ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
+            if( !options.TestMode.TestModeSetting( options.TestMode.ImapConnect, out var enabled ) && enabled )
+            {
+                WriteColor( "[ Test Mode ImapConnect Disabled ]", ConsoleColor.Yellow );
+                return null;
+            }
 
-            var imapClient = new ImapClient( host, port, ConnectionSecurity.Auto );
-            Console.Write( $"Connecting to {host}:{port}..." );
+            ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
+            
+            var imapClient = new ImapClient( options.Host, options.Port, ConnectionSecurity.Auto );
+            Console.Write( $"Connecting to {options.Host}:{options.Port}..." );
             imapClient.Connect( );
             WriteColor( " Success.", ConsoleColor.DarkGreen );
 
-            Console.Write( $"Authenticating {username}..." );
-            imapClient.Authenticate( username, password );
+            Console.Write( $"Authenticating {options.Username}..." );
+            imapClient.Authenticate( options.Username, options.Password );
             WriteColor( " Success.", ConsoleColor.DarkGreen );
 
             return imapClient;
         }
 
-        private static List<(DateTime date, string subject, int messageId)> GetEmailIdList( ImapClient imapClient, string from, string subject, int searchNumber )
+        private static List<(DateTime date, string subject, int messageId)> GetEmailIdList( SearchOptions options, ImapClient imapClient )
         {
             var emails = new List<(DateTime date, string subject, int messageId)>( );
+
+            if( !options.TestMode.TestModeSetting( options.TestMode.ImapConnect, out var enabled ) && enabled )
+            {
+                WriteColor( "[ Test Mode creating fake emails ]", ConsoleColor.Yellow );
+                emails.AddRange(
+                    new List<(DateTime date, string subject, int messageId)>
+                    {
+                        (DateTime.Now.AddSeconds(-120), $"{options.SearchSubject} ABC123", 1000),
+                        (DateTime.Now.AddSeconds(-320), $"{options.SearchSubject} MMM456", 2000),
+                        (DateTime.Now.AddSeconds(-720), $"{options.SearchSubject} ZZZ999", 3000),
+                    } );
+                return emails;
+            }
+
             imapClient.SelectInbox( );
 
-            Console.Write( $"Search for \"{subject}\"..." );
+            Console.Write( $"Search for \"{options.SearchSubject}\"..." );
 
-            var subjectCmd = $"SUBJECT \"{subject}\"";
-            var fromCmd = $"FROM {from}";
+            var subjectCmd = $"SUBJECT \"{options.SearchSubject}\"";
+            var fromCmd = $"FROM {options.SearchFrom}";
 
             var command = $"{fromCmd} {subjectCmd}";
             var list = imapClient.SearchMessageNumbers( command );
             WriteColor( " Success", ConsoleColor.DarkGreen );
 
             Console.Write( $"Downloading headers..." );
-            foreach( var msgId in list.OrderByDescending( i => i ).Take( searchNumber ) )
+            foreach( var msgId in list.OrderByDescending( i => i ).Take( options.SearchNumberOfMessages ) )
             {
                 var headers = imapClient.GetHeaders( msgId );
 
@@ -108,14 +147,30 @@ namespace CopyEmailText
 
         private static void DeleteMessages( SearchOptions options, ImapClient imapClient, List<(DateTime date, string subject, int messageId)> emails )
         {
+            var testModeEnabled = options.TestMode.Enabled;
+
             if( options.DeleteMessages )
             {
+                if( !options.TestMode.TestModeSetting( options.TestMode.DeleteMessages ) && testModeEnabled )
+                {
+                    WriteColor( "[ Test Mode not deleting messages ]", ConsoleColor.Yellow );
+                    return;
+                }
+
+                if( !options.TestMode.TestModeSetting( options.TestMode.ImapConnect ) && testModeEnabled )
+                {
+                    WriteColor( "[ Test Mode pretend to delete fake messages ]", ConsoleColor.Yellow );
+                }
+
                 Console.WriteLine( $"Deleting {emails.Count} emails..." );
                 emails.ForEach( e =>
                 {
-                    Console.Write($"\tDeleting message from {e.date:G}...");
-                    imapClient.DeleteMessage( e.messageId, false );
-                    WriteColor(" Success", ConsoleColor.DarkGreen);
+                    Console.Write( $"\tDeleting message from {e.date:G}..." );
+                    if( !testModeEnabled || options.TestMode.TestModeSetting( options.TestMode.ImapConnect ) && options.TestMode.TestModeSetting( options.TestMode.DeleteMessages ) )
+                    {
+                        imapClient.DeleteMessage( e.messageId, false );
+                    }
+                    WriteColor( " Success", ConsoleColor.DarkGreen );
                 } );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
             }
@@ -128,19 +183,19 @@ namespace CopyEmailText
             Console.ResetColor( );
         }
 
-        private static (string text, ConsoleColor color) GetTextAge( DateTime date )
+        private static (string text, ConsoleColor color) GetTextAge( DateTime date, SearchOptions options )
         {
             var now = DateTime.Now;
             var age = now - date;
 
-            var color = age.TotalSeconds > 30 ? ConsoleColor.Yellow : ConsoleColor.White;
+            var color = age.TotalSeconds > options.EmailMaxValidAgeSeconds ? ConsoleColor.Yellow : ConsoleColor.White;
 
-            if( age > new TimeSpan( 1, 10, 0 ) )
+            if( age > new TimeSpan( 1, 0, 0 ) )
             {
                 return ($"{( int ) age.TotalMinutes}m", ConsoleColor.DarkRed);
             }
-            
-            if( age > new TimeSpan( 0, 2, 0 ) )
+
+            if( age > TimeSpan.FromSeconds( options.EmailMaxValidAgeSeconds ) )
             {
                 return ($"{( int ) age.TotalMinutes}m {( int ) age.Seconds}s", color);
             }
