@@ -17,16 +17,18 @@ namespace CopyEmailText
 {
     class Program
     {
+        private const int HEIGHT = 25;
+        private const int WIDTH = 75;
         private static IConfigurationRoot _configuration;
 
         static void Main( string[] args )
         {
             try
             {
-                Console.WindowHeight = 25;
-                Console.WindowWidth = 75;
+                Console.WindowHeight = HEIGHT;
+                Console.WindowWidth = WIDTH;
                 Console.BufferWidth = Console.WindowWidth;
-                Console.Write( $"Reading appsettings..." );
+                WriteColor( $"Reading appsettings...", false );
                 var serviceCollection = new ServiceCollection( );
                 ConfigureServices( serviceCollection );
                 var options = _configuration.GetSection( "Options" ).Get<SearchOptions>( );
@@ -53,7 +55,7 @@ namespace CopyEmailText
                         throw new Exception( "Email contained no text" );
                     }
 
-                    Console.Write( $"Copying password to clipboard..." );
+                    WriteColor( $"Copying password to clipboard...", false );
                     var c = new Clipboard( );
                     c.SetText( email.text );
                     WriteColor( " Success", ConsoleColor.DarkGreen );
@@ -73,7 +75,7 @@ namespace CopyEmailText
             {
                 Console.WriteLine( );
                 WriteColor( e.Message, ConsoleColor.DarkRed );
-                Console.WriteLine( "Press enter to quit" );
+                WriteColor( "Press enter to quit" );
                 Console.ReadLine( );
             }
         }
@@ -89,13 +91,13 @@ namespace CopyEmailText
             ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
 
             var imapClient = new ImapClient( options.Host, options.Port, ConnectionSecurity.Auto );
-            Console.Write( $"Connecting to {options.Host}:{options.Port}..." );
+            WriteColor( $"Connecting to {options.Host}:{options.Port}...", false );
             imapClient.Connect( );
-            WriteColor( " Success.", ConsoleColor.DarkGreen );
+            WriteColor( " Success", ConsoleColor.DarkGreen );
 
-            Console.Write( $"Authenticating {options.Username}..." );
+            WriteColor( $"Authenticating {options.Username}...", false );
             imapClient.Authenticate( options.Username, options.Password );
-            WriteColor( " Success.", ConsoleColor.DarkGreen );
+            WriteColor( " Success", ConsoleColor.DarkGreen );
 
             return imapClient;
         }
@@ -119,16 +121,20 @@ namespace CopyEmailText
 
             imapClient.SelectInbox( );
 
-            Console.Write( $"Search for \"{options.SearchSubject}\"..." );
+            WriteColor( $"Search for \"{options.SearchSubject}\"...", false );
 
             var subjectCmd = $"SUBJECT \"{options.SearchSubject}\"";
             var fromCmd = $"FROM {options.SearchFrom}";
 
             var command = $"{fromCmd} {subjectCmd}";
             var list = imapClient.SearchMessageNumbers( command );
+            
+            if( !list.Any( ) )
+                return emails;
+
             WriteColor( " Success", ConsoleColor.DarkGreen );
 
-            Console.Write( $"Downloading headers..." );
+            WriteColor( $"Downloading headers...", false );
             foreach( var msgId in list.OrderByDescending( i => i ).Take( options.SearchNumberOfMessages ) )
             {
                 var headers = imapClient.GetHeaders( msgId );
@@ -136,14 +142,14 @@ namespace CopyEmailText
                 if( DateTime.TryParse( headers[HeaderId.Date].Body, out var date ) )
                     emails.Add( (date, headers[Headers.Subject].Body, msgId) );
             }
-            WriteColor( " Success.", ConsoleColor.DarkGreen );
+            WriteColor( " Success", ConsoleColor.DarkGreen );
 
             return emails;
         }
 
         private static (string text, DateTime date) GetTextFromEmail( List<(DateTime date, string subject, int messageId)> emails, string subject )
         {
-            Console.Write( $"Finding newest email..." );
+            WriteColor( $"Finding newest email...", false );
 
 
             var filteredEmail = emails
@@ -176,10 +182,10 @@ namespace CopyEmailText
                     WriteColor( "[ Test Mode pretend to delete fake messages ]", ConsoleColor.Yellow );
                 }
 
-                Console.WriteLine( $"Deleting {emails.Count} emails..." );
+                WriteColor( $"Deleting {emails.Count} emails..." );
                 emails.ForEach( e =>
                 {
-                    Console.Write( $"\tDeleting message from {e.date:G}..." );
+                    WriteColor( $"\tDeleting message from {e.date:G}...", false );
                     if( !testModeEnabled || options.TestMode.TestModeSetting( options.TestMode.ImapConnect ) && options.TestMode.TestModeSetting( options.TestMode.DeleteMessages ) )
                     {
                         imapClient.DeleteMessage( e.messageId, false );
@@ -190,10 +196,17 @@ namespace CopyEmailText
             }
         }
 
-        private static void WriteColor( string text, ConsoleColor color )
+        private static void WriteColor( string text, bool newLine = true )
         {
+            Console.ResetColor( );
+            WriteColor( text, Console.ForegroundColor, newLine );
+        }
+
+        private static void WriteColor( string text, ConsoleColor color, bool newLine = true )
+        {
+            var formattedText = newLine ? $"{text}{Environment.NewLine}" : $"{text, -(WIDTH-25)}";
             Console.ForegroundColor = color;
-            Console.WriteLine( text );
+            Console.Write( $"{formattedText}" );
             Console.ResetColor( );
         }
 
