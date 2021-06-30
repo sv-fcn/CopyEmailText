@@ -19,15 +19,21 @@ namespace CopyEmailText
     {
         private const int HEIGHT = 25;
         private const int WIDTH = 75;
+        private const ConsoleColor BACKGROUNDCOLOR = ConsoleColor.Black;
         private static IConfigurationRoot _configuration;
 
         static void Main( string[] args )
         {
             try
             {
+                Console.Title = nameof( CopyEmailText );
                 Console.WindowHeight = HEIGHT;
                 Console.WindowWidth = WIDTH;
+                Console.BufferHeight = HEIGHT;
                 Console.BufferWidth = Console.WindowWidth;
+                Console.BackgroundColor = BACKGROUNDCOLOR;
+                Console.Clear( );
+
                 WriteColor( $"Reading appsettings...", false );
                 var serviceCollection = new ServiceCollection( );
                 ConfigureServices( serviceCollection );
@@ -128,7 +134,7 @@ namespace CopyEmailText
 
             var command = $"{fromCmd} {subjectCmd}";
             var list = imapClient.SearchMessageNumbers( command );
-            
+
             if( !list.Any( ) )
                 return emails;
 
@@ -185,29 +191,28 @@ namespace CopyEmailText
                 WriteColor( $"Deleting {emails.Count} emails..." );
                 emails.ForEach( e =>
                 {
-                    WriteColor( $"\tDeleting message from {e.date:G}...", false );
+                    WriteColor( $"   Deleting message from {e.date:G}...", false );
                     if( !testModeEnabled || options.TestMode.TestModeSetting( options.TestMode.ImapConnect ) && options.TestMode.TestModeSetting( options.TestMode.DeleteMessages ) )
                     {
                         imapClient.DeleteMessage( e.messageId, false );
                     }
                     WriteColor( " Success", ConsoleColor.DarkGreen );
                 } );
-                WriteColor( " Success", ConsoleColor.DarkGreen );
             }
         }
 
         private static void WriteColor( string text, bool newLine = true )
         {
-            Console.ResetColor( );
             WriteColor( text, Console.ForegroundColor, newLine );
         }
 
         private static void WriteColor( string text, ConsoleColor color, bool newLine = true )
         {
-            var formattedText = newLine ? $"{text}{Environment.NewLine}" : $"{text, -(WIDTH-25)}";
+            var formattedText = newLine ? $"{text}{Environment.NewLine}" : $"{text,-( WIDTH - 20 )}";
             Console.ForegroundColor = color;
             Console.Write( $"{formattedText}" );
             Console.ResetColor( );
+            Console.BackgroundColor = BACKGROUNDCOLOR;
         }
 
         private static (string text, ConsoleColor color) GetTextAge( DateTime date, SearchOptions options )
