@@ -40,7 +40,18 @@ namespace CopyEmailText
                 using( var imapClient = ImapConnect( options ) )
                 {
                     var emailList = GetEmailIdList( options, imapClient );
+
+                    if( !emailList.Any( ) )
+                    {
+                        throw new Exception( "No email found" );
+                    }
+
                     var email = GetTextFromEmail( emailList, options.SearchSubject );
+
+                    if( string.IsNullOrWhiteSpace( email.text ) )
+                    {
+                        throw new Exception( "Email contained no text" );
+                    }
 
                     Console.Write( $"Copying password to clipboard..." );
                     var c = new Clipboard( );
@@ -54,13 +65,16 @@ namespace CopyEmailText
                     Console.WriteLine( );
                     DeleteMessages( options, imapClient, emailList );
 
+
                     Thread.Sleep( options.ShowConsoleSeconds * 1000 );
                 }
             }
             catch( Exception e )
             {
-                Console.WriteLine();
+                Console.WriteLine( );
                 WriteColor( e.Message, ConsoleColor.DarkRed );
+                Console.WriteLine( "Press enter to quit" );
+                Console.ReadLine( );
             }
         }
 
@@ -73,7 +87,7 @@ namespace CopyEmailText
             }
 
             ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
-            
+
             var imapClient = new ImapClient( options.Host, options.Port, ConnectionSecurity.Auto );
             Console.Write( $"Connecting to {options.Host}:{options.Port}..." );
             imapClient.Connect( );
