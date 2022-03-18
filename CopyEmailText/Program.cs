@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net.Security;
 using System.Threading;
 using GemBox.Email;
 using GemBox.Email.Imap;
@@ -12,6 +13,7 @@ using GemBox.Email.Security;
 using TextCopy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Cryptography.X509Certificates;
 
 namespace CopyEmailText
 {
@@ -24,6 +26,9 @@ namespace CopyEmailText
 
         static void Main( string[] args )
         {
+            SearchOptions options = null;
+            int defaultBufferHeight = Console.BufferHeight;
+
             try
             {
                 Console.Title = nameof( CopyEmailText );
@@ -37,7 +42,7 @@ namespace CopyEmailText
                 WriteColor( $"Reading appsettings...", false );
                 var serviceCollection = new ServiceCollection( );
                 ConfigureServices( serviceCollection );
-                var options = _configuration.GetSection( "Options" ).Get<SearchOptions>( );
+                options = _configuration.GetSection( "Options" ).Get<SearchOptions>( );
                 WriteColor( " Success", ConsoleColor.DarkGreen );
 
                 if( options.TestMode.Enabled )
@@ -80,7 +85,17 @@ namespace CopyEmailText
             catch( Exception e )
             {
                 Console.WriteLine( );
-                WriteColor( e.Message, ConsoleColor.DarkRed );
+                if( options is null || options.OutputFullException )
+                {
+                    Console.BufferHeight = defaultBufferHeight;
+
+                    WriteColor( e.ToString(), ConsoleColor.DarkRed );
+                }
+                else
+                {
+                    WriteColor( e.Message, ConsoleColor.DarkRed );
+                }
+
                 WriteColor( "Press enter to quit" );
                 Console.ReadLine( );
             }
@@ -96,8 +111,12 @@ namespace CopyEmailText
 
             ComponentInfo.SetLicense( "FREE-LIMITED-KEY" );
 
-            var imapClient = new ImapClient( options.Host, options.Port, ConnectionSecurity.Auto );
-            WriteColor( $"Connecting to {options.Host}:{options.Port}...", false );
+            var sec = Enum.TryParse( typeof( ConnectionSecurity ), options.ConnectionSecurity, true, out var cs ) ? (ConnectionSecurity)cs : ConnectionSecurity.Auto;
+
+            var imapClient = new ImapClient( options.Host, options.Port, sec, new RemoteCertificateValidationCallback(ValidateServerCertificate) );
+            WriteColor( $"Connecting to {options.Host}:{options.Port} using {sec}...", false );
+            
+
             imapClient.Connect( );
             WriteColor( " Success", ConsoleColor.DarkGreen );
 
@@ -106,6 +125,31 @@ namespace CopyEmailText
             WriteColor( " Success", ConsoleColor.DarkGreen );
 
             return imapClient;
+        }
+
+        private static bool ValidateServerCertificate(
+            object sender,
+            X509Certificate certificate,
+            X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
+        {
+            if (sslPolicyErrors == SslPolicyErrors.None)
+            {
+                return true;
+            }
+
+            const SslPolicyErrors ignoredErrors =
+                SslPolicyErrors.RemoteCertificateChainErrors |  // self-signed
+                SslPolicyErrors.RemoteCertificateNameMismatch;  // name mismatch
+            
+            if ((sslPolicyErrors & ~ignoredErrors) == SslPolicyErrors.None)
+            {
+                return true;
+            }
+
+            Console.WriteLine("Certificate error: {0}", sslPolicyErrors);
+
+            return false;
         }
 
         private static List<(DateTime date, string subject, int messageId)> GetEmailIdList( SearchOptions options, ImapClient imapClient )

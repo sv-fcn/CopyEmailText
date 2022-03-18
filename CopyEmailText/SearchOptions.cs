@@ -13,6 +13,8 @@
         public int EmailMaxValidAgeSeconds { get; set; }
         public bool DeleteMessages { get; set; }
         public int ShowConsoleSeconds { get; set; }
+        public string?ConnectionSecurity { get; set; }
+        public bool OutputFullException { get; set; }
     }
 
     public class TestMode
