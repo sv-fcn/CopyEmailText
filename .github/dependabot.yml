@@ -9,7 +9,7 @@ version: 2                        #Dependabot version
 #registries:                      #Register private nuget-repo -> https://bit.ly/3KqDNWS
 updates:
   - package-ecosystem: "nuget"    #Check other types (npm, bundler, ...)
-    directory: "/"                #Path to project file (C#) or similar package-registry
+    directory: "/"                #Path to project file (C#) or similar package-registry (e.g. package.json)
     schedule:
         interval: "weekly"
         day: "sunday"
