@@ -3,6 +3,8 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
+#YAML - validator: https://codebeautify.org/yaml-validator
+
 version: 2                        #Dependabot version
 #registries:                      #Register private nuget-repo -> https://bit.ly/3KqDNWS
 updates:
