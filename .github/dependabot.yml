@@ -3,9 +3,19 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
-version: 2
+version: 2                        #Dependabot version
+#registries:                      #Register private nuget-repo -> https://bit.ly/3KqDNWS
 updates:
-  - package-ecosystem: "nuget" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "nuget"    #Check other types (npm, bundler, ...)
+    directory: "/"                #Path to project file (C#) or similar package-registry
     schedule:
-      interval: "weekly"
+        interval: "weekly"
+        day: "sunday"
+    open-pull-requests-limit: 10  #How many alerts?
+assignees: 
+  - "sv-fcn"
+  - "mrheskia"
+reviewers:
+  - "sv-fcn"
+commit-message:
+  prefix: "nuget"
