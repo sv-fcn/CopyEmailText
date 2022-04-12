@@ -5,23 +5,23 @@
 
 #YAML - validator: https://codebeautify.org/yaml-validator
 
-version: 2                                          #Dependabot version
-#registries:                                        #Register private nuget-repo -> https://bit.ly/3KqDNWS
+version: 2                                              #Dependabot version
+#registries:                                            #Register private nuget-repo -> https://bit.ly/3KqDNWS
 updates:
-  - package-ecosystem: "nuget"                      #Check other types (npm, bundler, ...)
-    directory: "/"                                  #Path to project file (C#) or similar package-registry (e.g. package.json)
+  - package-ecosystem: "nuget"                          #Check other types (npm, bundler, ...)
+    directory: "/"                                      #Path to project file (C#) or similar package-registry (e.g. package.json)
     schedule:
         interval: "weekly"
         day: "sunday"
-    open-pull-requests-limit: 10                    #How many alerts?
-assignees: 
-  - "sv-fcn"
-  - "mrheskia"
-reviewers:
-  - "sv-fcn"
-commit-message:
-  prefix: "nuget"
-ignore:
-  - dependency-name: "GemBox.Email"                 #Ignore GemBox.Email
-  - dependency-name: "*"
-    update-types: ["version-update:semver-patch"]   #Ignore patch updates
+    open-pull-requests-limit: 10                        #How many alerts?
+    assignees: 
+      - "sv-fcn"
+      - "mrheskia"
+    reviewers:
+      - "sv-fcn"
+    commit-message:
+      prefix: "nuget"
+    ignore:
+      - dependency-name: "GemBox.Email"                 #Ignore GemBox.Email
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]   #Ignore patch updates
